@@ -49,16 +49,27 @@ static const char *mounts[][3] = {
 	{NULL, NULL, NULL}
 };
 
+static void safe_write(int fd, const char *buf, size_t len)
+{
+	while (len > 0) {
+		ssize_t n = write(fd, buf, len);
+		if (n <= 0)
+			break;
+		buf += n;
+		len -= (size_t)n;
+	}
+}
+
 static void print_msg(const char *msg)
 {
-	write(STDOUT_FILENO, AEGIS_COLORS, sizeof(AEGIS_COLORS) - 1);
-	write(STDOUT_FILENO, msg, strlen(msg));
-	write(STDOUT_FILENO, "\n", 1);
+	safe_write(STDOUT_FILENO, AEGIS_COLORS, sizeof(AEGIS_COLORS) - 1);
+	safe_write(STDOUT_FILENO, msg, strlen(msg));
+	safe_write(STDOUT_FILENO, "\n", 1);
 }
 
 static void print_msg_raw(const char *msg)
 {
-	write(STDOUT_FILENO, msg, strlen(msg));
+	safe_write(STDOUT_FILENO, msg, strlen(msg));
 }
 
 static int do_mount(const char *source, const char *target,
@@ -137,7 +148,8 @@ static void setup_environment(void)
 	setenv("AEGIS_KERNEL", "7.3.0-rc1-aegis", 1);
 
 	/* Set hostname */
-	sethostname("aegis-dev", 9);
+	if (sethostname("aegis-dev", 9) < 0)
+		print_msg("Warning: sethostname failed");
 
 	print_msg("Environment ready");
 }

@@ -61,4 +61,6 @@ jobs:
         run: |
           cd linux
           make -j"$(nproc)" security/aegis/
-          ls -l security/aegis/aegis.o
+          test -f security/aegis/built-in.a
+          grep -q "CONFIG_SECURITY_AEGIS=y" .config && echo "CONFIG_SECURITY_AEGIS=y"
+          ls -lh security/aegis/built-in.a
