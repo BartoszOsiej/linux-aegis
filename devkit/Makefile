@@ -72,8 +72,10 @@ initramfs: $(BUILD_DIR)/aegis_init $(BUILD_DIR)/aegisctl
 
 	# Clean old initramfs
 	rm -rf $(INITRAMFS_DIR)
-	mkdir -p $(INITRAMFS_DIR)/{bin,sbin,etc,proc,sys,dev,tmp,run}
-	mkdir -p $(INITRAMFS_DIR)/usr/{bin,sbin,lib}
+	mkdir -p $(INITRAMFS_DIR)/bin $(INITRAMFS_DIR)/sbin $(INITRAMFS_DIR)/etc
+	mkdir -p $(INITRAMFS_DIR)/proc $(INITRAMFS_DIR)/sys $(INITRAMFS_DIR)/dev
+	mkdir -p $(INITRAMFS_DIR)/tmp $(INITRAMFS_DIR)/run
+	mkdir -p $(INITRAMFS_DIR)/usr/bin $(INITRAMFS_DIR)/usr/sbin $(INITRAMFS_DIR)/usr/lib
 	mkdir -p $(INITRAMFS_DIR)/dev/pts
 	mkdir -p $(INITRAMFS_DIR)/root
 
