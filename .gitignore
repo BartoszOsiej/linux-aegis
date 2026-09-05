@@ -1,0 +1,10 @@
+/devkit/initramfs.cpio.gz
+/devkit/initramfs/
+/devkit/build/
+*.o
+*.cmd
+*.mod
+*.mod.c
+*.ko
+built-in.a
+.vmlinux.*

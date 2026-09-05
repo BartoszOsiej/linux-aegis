@@ -1,0 +1,12 @@
+diff --git a/include/uapi/linux/lsm.h b/include/uapi/linux/lsm.h
+index 938593dfd..8b5294596 100644
+--- a/include/uapi/linux/lsm.h
++++ b/include/uapi/linux/lsm.h
+@@ -65,6 +65,7 @@ struct lsm_ctx {
+ #define LSM_ID_IMA		111
+ #define LSM_ID_EVM		112
+ #define LSM_ID_IPE		113
++#define LSM_ID_AEGIS		114
+ 
+ /*
+  * LSM_ATTR_XXX definitions identify different LSM attributes

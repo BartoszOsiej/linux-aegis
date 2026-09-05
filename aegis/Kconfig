@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config SECURITY_AEGIS
+	bool "AEGIS support"
+	depends on SECURITY
+	default n
+	help
+	  AEGIS (Advanced Guardian for Integrated System Security) is a
+	  comprehensive Linux Security Module providing:
+
+	  - Process protection (anti-ptrace, anti-debugging)
+	  - File integrity monitoring and enforcement
+	  - Syscall auditing and filtering
+	  - Kernel module loading control
+	  - Securityfs and sysctl interfaces
+
+	  This selects AEGIS, which extends DAC support with additional
+	  system-wide security settings beyond regular Linux discretionary
+	  access controls. Like capabilities, this security module stacks
+	  with other LSMs.
+
+	  Further information can be found at:
+	  Documentation/security/aegis.rst
+
+	  If you are unsure how to answer this question, answer N.
+
+config SECURITY_AEGIS_PROCESS_PROTECT
+	bool "AEGIS Process Protection"
+	depends on SECURITY_AEGIS
+	default y
+	help
+	  Enable AEGIS process protection subsystem. This provides
+	  anti-ptrace and anti-debugging protections for configured
+	  processes.
+
+config SECURITY_AEGIS_FILE_INTEGRITY
+	bool "AEGIS File Integrity"
+	depends on SECURITY_AEGIS
+	default y
+	help
+	  Enable AEGIS file integrity monitoring. This provides SHA-256
+	  hash-based integrity checking and write protection for critical
+	  system files.
+
+config SECURITY_AEGIS_SYSCALL_AUDIT
+	bool "AEGIS Syscall Audit"
+	depends on SECURITY_AEGIS
+	default y
+	help
+	  Enable AEGIS syscall auditing and filtering. This provides
+	  configurable blocking and logging of dangerous system calls.
+
+config SECURITY_AEGIS_MODULE_CONTROL
+	bool "AEGIS Module Control"
+	depends on SECURITY_AEGIS
+	default y
+	help
+	  Enable AEGIS kernel module loading control. This provides
+	  the ability to restrict kernel module loading at runtime.
