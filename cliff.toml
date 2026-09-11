@@ -1,0 +1,35 @@
+[changelog]
+header = "AEGIS — Linux Security Module\n"
+body = """
+## [Unreleased]
+### Added
+
+### Changed
+
+### Fixed
+
+### Security
+
+"""
+trim = true
+footer = ""
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+commit_parsers = [
+  { message = "^feat", group = "### Added" },
+  { message = "^aegis.*feat", group = "### Added" },
+  { message = "^fix", group = "### Fixed" },
+  { message = "^aegis.*fix", group = "### Fixed" },
+  { message = "^refactor", group = "### Changed" },
+  { message = "^docs", group = "### Changed" },
+  { message = "^test", group = "### Changed" },
+  { message = "^chore", group = "### Changed" },
+  { message = "^security|^cve|^vuln", group = "### Security" },
+  { message = "^aegis.*security", group = "### Security" },
+]
+protect_breaking_commits = true
+
+[release]
+commit_preparers = []
