@@ -199,3 +199,7 @@ Add protected subjects at runtime from inside the VM:
 
 All kernel-side code (module, patches, build glue, devkit) is **GPL-2.0-only**, matching
 the Linux kernel licensing model. See [`COPYING`](COPYING).
+## Deep Dives
+
+Extended dossiers (architecture, verification, benchmarks, error codex) ship in this repo:
+- [SECURITY-aegis.md](SECURITY-aegis.md)
