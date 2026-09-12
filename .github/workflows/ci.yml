@@ -121,7 +121,8 @@ jobs:
             echo "head -1 /etc/passwd"; sleep 1.5; \
             echo "aegisctl file-del /etc/passwd"; sleep 1.5; \
             echo "echo hacked > /etc/passwd"; sleep 1.5; \
-            echo "aegisctl proc-add cid testdaemon"; sleep 1.5; \
+            echo "aegisctl proc-add testdaemon"; sleep 1.5; \
+            echo "aegisctl syscall-add 999"; sleep 1.5; \
             echo "poweroff -f"; sleep 3 \
           ) | timeout 90 qemu-system-x86_64 -m 1024 -smp 2 \
             -kernel ../linux/arch/x86/boot/bzImage \
@@ -133,6 +134,7 @@ jobs:
           grep -aq "root:x:0:0" enforce.log
           grep -aq "protected_files_del <- /etc/passwd" enforce.log
           grep -aq "protected_procs_add <- testdaemon" enforce.log
+          grep -aq "blocked_syscalls_add <- 999" enforce.log
           echo "ENFORCEMENT TEST PASSED — kernel denied the write, policy add/remove from userspace works"
       - name: Upload boot log
         if: always()
