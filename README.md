@@ -83,7 +83,24 @@ $ cat /sys/kernel/security/aegis/status
 $ cat /sys/kernel/security/aegis/protected_procs
 $ cat /sys/kernel/security/aegis/protected_files
 $ cat /sys/kernel/security/aegis/blocked_syscalls
+
+# live policy control (requires root — CAP_MAC_ADMIN)
+$ aegisctl file-add /etc/passwd        # kernel now denies writes to it
+$ aegisctl file-del /etc/passwd        # protection lifted
+$ aegisctl proc-add sshd               # protect all processes named sshd
+$ aegisctl proc-add mydaemon 1234      # protect a single PID
+$ aegisctl syscall-add 165             # block a syscall number (kexec_load)
+$ aegisctl syscall-del 165             # unblock
 ```
+
+Write endpoints live at `/sys/kernel/security/aegis/*_add|*_del` (mode 0200)
+and every mutation requires `CAP_MAC_ADMIN` — an explicit capability check,
+not just a file-mode check.
+
+Boot and enforcement are verified in CI: the `boot-test` job boots the
+kernel in QEMU, asserts AEGIS initializes, then protects `/etc/passwd`,
+asserts the kernel **denies** the write with the file intact, removes the
+protection, and asserts writes work again.
 
 ## Repository layout
 
