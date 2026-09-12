@@ -111,9 +111,34 @@ jobs:
           grep -aq "Securityfs interface created" boot.log
           grep -aq "Status:.*ACTIVE" boot.log
           echo "BOOT TEST PASSED — AEGIS initialized, securityfs live, status readable from userspace"
+      - name: Enforcement test (protect file, deny write, unprotect)
+        run: |
+          cd devkit
+          ( \
+            sleep 12; \
+            echo "aegisctl file-add /etc/passwd"; sleep 1.5; \
+            echo "echo hacked > /etc/passwd"; sleep 1.5; \
+            echo "head -1 /etc/passwd"; sleep 1.5; \
+            echo "aegisctl file-del /etc/passwd"; sleep 1.5; \
+            echo "echo hacked > /etc/passwd"; sleep 1.5; \
+            echo "aegisctl proc-add cid testdaemon"; sleep 1.5; \
+            echo "poweroff -f"; sleep 3 \
+          ) | timeout 90 qemu-system-x86_64 -m 1024 -smp 2 \
+            -kernel ../linux/arch/x86/boot/bzImage \
+            -initrd initramfs.cpio.gz \
+            -append "console=ttyS0 panic=-1" \
+            -nographic -no-reboot > enforce.log 2>&1 || true
+          grep -aq "protected_files_add <- /etc/passwd" enforce.log
+          grep -aq "can't create /etc/passwd: Permission denied" enforce.log
+          grep -aq "root:x:0:0" enforce.log
+          grep -aq "protected_files_del <- /etc/passwd" enforce.log
+          grep -aq "protected_procs_add <- testdaemon" enforce.log
+          echo "ENFORCEMENT TEST PASSED — kernel denied the write, policy add/remove from userspace works"
       - name: Upload boot log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: boot-log
-          path: devkit/boot.log
+          name: boot-logs
+          path: |
+            devkit/boot.log
+            devkit/enforce.log
