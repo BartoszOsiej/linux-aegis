@@ -6,8 +6,13 @@
  *   - enabled: master switch
  *   - features: feature bitmask
  *   - ptrace_restrict_all: restrict all ptrace
- *   - file_integrity_enforce: enforce file integrity
- *   - module_loading_denied: deny module loading
+ *   - file_integrity_enforce: deny writes to protected files
+ *   - file_integrity_log: log all access to protected files
+ *   - syscall_audit_enable: enable syscall auditing subsystem
+ *   - module_loading_denied: deny module/kexec loading
+ *
+ * Every handler syncs the sysctl mirror into aegis_cfg AFTER a write —
+ * the hooks read aegis_cfg, never the mirrors.
  *
  * Copyright (C) 2026 AEGIS Security Project
  */
@@ -26,6 +31,7 @@ static int aegis_enabled = 1;
 static int aegis_features_val = AEGIS_FEATURE_ALL;
 static int aegis_ptrace_restrict_all = 0;
 static int aegis_file_integrity_enforce = 1;
+static int aegis_file_integrity_log = 1;
 static int aegis_module_loading_denied = 0;
 static int aegis_syscall_audit_enable = 1;
 
@@ -66,6 +72,37 @@ static int aegis_proc_features(const struct ctl_table *table, int write,
 	return ret;
 }
 
+/*
+ * Boolean toggle generator: reads/writes the mirror via proc_dointvec,
+ * then commits the value into the aegis_cfg field the hooks actually
+ * consult. Without the sync step the knobs are decorative.
+ */
+#define AEGIS_BOOL_HANDLER(name, cfg_field, desc)				\
+static int aegis_proc_##name(const struct ctl_table *table, int write,		\
+			     void __user *buffer, size_t *lenp, loff_t *ppos)	\
+{										\
+	int ret;								\
+										\
+	ret = proc_dointvec(table, write, buffer, lenp, ppos);			\
+	if (write && ret == 0) {						\
+		aegis_cfg.cfg_field = (aegis_##name != 0);			\
+		AEGIS_INFO(desc ": %s", aegis_cfg.cfg_field ? "ON" : "OFF");	\
+	}									\
+										\
+	return ret;								\
+}
+
+AEGIS_BOOL_HANDLER(ptrace_restrict_all, ptrace_restrict_all,
+		   "Ptrace restriction (all processes)")
+AEGIS_BOOL_HANDLER(file_integrity_enforce, file_integrity_enforce,
+		   "File integrity enforcement")
+AEGIS_BOOL_HANDLER(file_integrity_log, file_integrity_log,
+		   "File integrity logging")
+AEGIS_BOOL_HANDLER(module_loading_denied, module_loading_denied,
+		   "Module/kexec loading denial")
+AEGIS_BOOL_HANDLER(syscall_audit_enable, syscall_audit_enable,
+		   "Syscall auditing")
+
 /* ===================== Sysctl Table ================================ */
 
 static struct ctl_table aegis_sysctl_table[] = {
@@ -88,28 +125,36 @@ static struct ctl_table aegis_sysctl_table[] = {
 		.data		= &aegis_ptrace_restrict_all,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
+		.proc_handler	= aegis_proc_ptrace_restrict_all,
 	},
 	{
 		.procname	= "file_integrity_enforce",
 		.data		= &aegis_file_integrity_enforce,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
+		.proc_handler	= aegis_proc_file_integrity_enforce,
+	},
+	{
+		.procname	= "file_integrity_log",
+		.data		= &aegis_file_integrity_log,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= aegis_proc_file_integrity_log,
 	},
 	{
 		.procname	= "module_loading_denied",
 		.data		= &aegis_module_loading_denied,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
+		.proc_handler	= aegis_proc_module_loading_denied,
 	},
 	{
 		.procname	= "syscall_audit_enable",
 		.data		= &aegis_syscall_audit_enable,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
-		.proc_handler	= proc_dointvec,		},
+		.proc_handler	= aegis_proc_syscall_audit_enable,
+	},
 };
 
 /* ===================== Initialization =============================== */

@@ -24,6 +24,11 @@
 /* ===================== Securityfs Inodes ============================ */
 
 static struct dentry *aegis_dir;
+static struct dentry *aegis_status_d;
+static struct dentry *aegis_stats_d;
+static struct dentry *aegis_protected_procs_d;
+static struct dentry *aegis_protected_files_d;
+static struct dentry *aegis_blocked_syscalls_d;
 
 /* ===================== Seq File Operations ========================== */
 
@@ -184,38 +189,74 @@ static const struct file_operations aegis_blocked_syscalls_fops = {
 
 /**
  * aegis_securityfs_init - Create the /sys/kernel/security/aegis/ tree
+ *
+ * MUST run as a late initcall: securityfs_create_dir() requires the VFS
+ * mount machinery, which is not initialized while LSM initcalls run.
+ * Calling this directly from aegis_init() null-derefs and panics the boot
+ * (the same reason Landlock sets up its securityfs in late_initcall).
  */
 int aegis_securityfs_init(void)
 {
+	int ret = 0;
+
 	aegis_dir = securityfs_create_dir(AEGIS_NAME, NULL);
 	if (IS_ERR(aegis_dir)) {
-		AEGIS_ERR("Failed to create securityfs directory: %ld",
-			  PTR_ERR(aegis_dir));
-		return PTR_ERR(aegis_dir);
+		ret = PTR_ERR(aegis_dir);
+		aegis_dir = NULL;
+		AEGIS_ERR("Failed to create securityfs directory: %d", ret);
+		return ret;
 	}
 
 	/* Create status file */
-	securityfs_create_file("status", 0444, aegis_dir,
-			       NULL, &aegis_status_fops);
+	aegis_status_d = securityfs_create_file("status", 0444, aegis_dir,
+					       NULL, &aegis_status_fops);
+	if (IS_ERR(aegis_status_d)) {
+		ret = PTR_ERR(aegis_status_d);
+		goto err;
+	}
 
 	/* Create stats file */
-	securityfs_create_file("stats", 0444, aegis_dir,
-			       NULL, &aegis_stats_fops);
+	aegis_stats_d = securityfs_create_file("stats", 0444, aegis_dir,
+					       NULL, &aegis_stats_fops);
+	if (IS_ERR(aegis_stats_d)) {
+		ret = PTR_ERR(aegis_stats_d);
+		goto err;
+	}
 
 	/* Create protected processes file */
-	securityfs_create_file("protected_procs", 0444, aegis_dir,
-			       NULL, &aegis_protected_procs_fops);
+	aegis_protected_procs_d = securityfs_create_file("protected_procs", 0444,
+							 aegis_dir, NULL,
+							 &aegis_protected_procs_fops);
+	if (IS_ERR(aegis_protected_procs_d)) {
+		ret = PTR_ERR(aegis_protected_procs_d);
+		goto err;
+	}
 
 	/* Create protected files file */
-	securityfs_create_file("protected_files", 0444, aegis_dir,
-			       NULL, &aegis_protected_files_fops);
+	aegis_protected_files_d = securityfs_create_file("protected_files", 0444,
+							 aegis_dir, NULL,
+							 &aegis_protected_files_fops);
+	if (IS_ERR(aegis_protected_files_d)) {
+		ret = PTR_ERR(aegis_protected_files_d);
+		goto err;
+	}
 
 	/* Create blocked syscalls file */
-	securityfs_create_file("blocked_syscalls", 0444, aegis_dir,
-			       NULL, &aegis_blocked_syscalls_fops);
+	aegis_blocked_syscalls_d = securityfs_create_file("blocked_syscalls", 0444,
+							  aegis_dir, NULL,
+							  &aegis_blocked_syscalls_fops);
+	if (IS_ERR(aegis_blocked_syscalls_d)) {
+		ret = PTR_ERR(aegis_blocked_syscalls_d);
+		goto err;
+	}
 
 	AEGIS_INFO("Securityfs interface created at /sys/kernel/security/aegis/");
 	return 0;
+
+err:
+	aegis_securityfs_exit();
+	AEGIS_ERR("Failed to create securityfs entry: %d", ret);
+	return ret;
 }
 
 /**
@@ -223,6 +264,38 @@ int aegis_securityfs_init(void)
  */
 void aegis_securityfs_exit(void)
 {
-	if (aegis_dir && !IS_ERR(aegis_dir))
+	/* Files must be removed individually, then the directory */
+	if (!IS_ERR_OR_NULL(aegis_status_d))
+		securityfs_remove(aegis_status_d);
+	if (!IS_ERR_OR_NULL(aegis_stats_d))
+		securityfs_remove(aegis_stats_d);
+	if (!IS_ERR_OR_NULL(aegis_protected_procs_d))
+		securityfs_remove(aegis_protected_procs_d);
+	if (!IS_ERR_OR_NULL(aegis_protected_files_d))
+		securityfs_remove(aegis_protected_files_d);
+	if (!IS_ERR_OR_NULL(aegis_blocked_syscalls_d))
+		securityfs_remove(aegis_blocked_syscalls_d);
+	if (!IS_ERR_OR_NULL(aegis_dir))
 		securityfs_remove(aegis_dir);
+
+	aegis_status_d = NULL;
+	aegis_stats_d = NULL;
+	aegis_protected_procs_d = NULL;
+	aegis_protected_files_d = NULL;
+	aegis_blocked_syscalls_d = NULL;
+	aegis_dir = NULL;
 }
+
+/**
+ * aegis_securityfs_late_init - deferred securityfs setup
+ *
+ * Registered below; runs after the VFS is fully alive.
+ */
+static int __init aegis_securityfs_late_init(void)
+{
+	int ret = aegis_securityfs_init();
+	if (ret)
+		AEGIS_ERR("securityfs init deferred call failed: %d", ret);
+	return ret;
+}
+late_initcall(aegis_securityfs_late_init);

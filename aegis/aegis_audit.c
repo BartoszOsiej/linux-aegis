@@ -37,7 +37,19 @@ int aegis_audit_init(void)
 	spin_lock_init(&blocked_syscalls_lock);
 	blocked_syscall_count = 0;
 
-	/* Add some dangerous syscalls to the block list by default */
+	/*
+	 * Default block list: kexec + module loading entry points.
+	 *
+	 * Enforcement map (LSM hooks can only observe what the kernel
+	 * routes through security_()):
+	 *   __NR_finit_module     -> kernel_read_file(READING_MODULE)
+	 *   __NR_init_module      -> kernel_load_data(LOADING_MODULE)
+	 *   __NR_kexec_file_load  -> kernel_read_file(READING_KEXEC_*)
+	 *   __NR_kexec_load       -> kernel_load_data(LOADING_KEXEC_IMAGE)
+	 *   __NR_delete_module    -> NOT hookable via current LSM hooks;
+	 *                            requires CAP_SYS_MODULE anyway. Listed
+	 *                            here for documentation/audit visibility.
+	 */
 	aegis_syscall_block_add(__NR_kexec_load);
 	aegis_syscall_block_add(__NR_kexec_file_load);
 	aegis_syscall_block_add(__NR_init_module);
@@ -171,8 +183,8 @@ void aegis_blocked_syscall_show(struct seq_file *m)
 
 	seq_printf(m, "AEGIS Blocked Syscalls (%d entries):\n",
 		   blocked_syscall_count);
-	seq_printf(m, "%8s %s\n", "NR", "NAME");
-	seq_printf(m, "%8s %s\n", "--", "----");
+	seq_printf(m, "%8s\n", "NR");
+	seq_printf(m, "%8s\n", "--");
 
 	spin_lock(&blocked_syscalls_lock);
 	list_for_each_entry(entry, &blocked_syscalls, list) {

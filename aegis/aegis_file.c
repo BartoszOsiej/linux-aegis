@@ -58,10 +58,6 @@ int aegis_compute_file_hash(struct file *file, u8 *hash_out)
 	if (IS_ERR(tfm))
 		return PTR_ERR(tfm);
 
-	ret = crypto_shash_setkey(tfm, NULL, 0);
-	if (ret)
-		goto out_tfm;
-
 	desc = kmalloc(sizeof(*desc) + crypto_shash_descsize(tfm),
 		       GFP_KERNEL);
 	if (!desc) {
@@ -225,6 +221,18 @@ int aegis_protected_file_del(const char *path)
 
 	AEGIS_INFO("Protected file removed: %s", path);
 	return 0;
+}
+
+/**
+ * aegis_protected_file_count - Fast-path helper for the file_permission hook
+ *
+ * Returns the number of entries on the protected list. Reading the count
+ * without the lock is intentionally allowed: the value is a heuristic to
+ * skip work on the global hot path, never a correctness decision.
+ */
+int aegis_protected_file_count(void)
+{
+	return protected_file_count;
 }
 
 /**

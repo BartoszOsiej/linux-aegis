@@ -134,6 +134,7 @@ void aegis_file_exit(void);
 int aegis_protected_file_add(const char *path);
 int aegis_protected_file_del(const char *path);
 int aegis_compute_file_hash(struct file *file, u8 *hash_out);
+int aegis_protected_file_count(void);
 bool aegis_is_file_protected(const char *path);
 void aegis_protected_file_show(struct seq_file *m);
 

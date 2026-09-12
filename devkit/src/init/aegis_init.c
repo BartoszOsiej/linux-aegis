@@ -43,6 +43,7 @@
 static const char *mounts[][3] = {
 	{"proc",     "/proc",    "proc"},
 	{"sysfs",    "/sys",     "sysfs"},
+	{"securityfs", "/sys/kernel/security", "securityfs"},
 	{"tmpfs",    "/tmp",     "tmpfs"},
 	{"devtmpfs", "/dev",     "devtmpfs"},
 	{"debugfs",  "/sys/kernel/debug", "debugfs"},
