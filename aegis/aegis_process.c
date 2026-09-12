@@ -85,8 +85,12 @@ int aegis_protect_process_add(const char *comm, pid_t pid)
 	if (!comm)
 		return -EINVAL;
 
-	/* Check if already protected */
+	/* Check capacity and duplicates */
 	spin_lock(&protected_procs_lock);
+	if (protected_proc_count >= AEGIS_MAX_PROTECTED_PROCS) {
+		spin_unlock(&protected_procs_lock);
+		return -ENOSPC;
+	}
 	list_for_each_entry(proc, &protected_procs, list) {
 		if (proc->pid == pid && strncmp(proc->comm, comm, AEGIS_COMM_LEN) == 0) {
 			spin_unlock(&protected_procs_lock);

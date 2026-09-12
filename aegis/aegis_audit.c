@@ -89,8 +89,12 @@ int aegis_syscall_block_add(int syscall_nr)
 	if (syscall_nr < 0)
 		return -EINVAL;
 
-	/* Check if already blocked */
+	/* Check capacity and duplicates */
 	spin_lock(&blocked_syscalls_lock);
+	if (blocked_syscall_count >= AEGIS_MAX_BLOCKED_SYSCALLS) {
+		spin_unlock(&blocked_syscalls_lock);
+		return -ENOSPC;
+	}
 	list_for_each_entry(sc, &blocked_syscalls, list) {
 		if (sc->syscall_nr == syscall_nr) {
 			spin_unlock(&blocked_syscalls_lock);

@@ -11,4 +11,5 @@ aegis-y := aegis_lsm.o \
 	   aegis_audit.o \
 	   aegis_module.o \
 	   aegis_securityfs.o \
+	   aegis_control.o \
 	   aegis_sysctl.o

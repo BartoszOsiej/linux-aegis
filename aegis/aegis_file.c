@@ -150,8 +150,12 @@ int aegis_protected_file_add(const char *path)
 	if (!path)
 		return -EINVAL;
 
-	/* Check if already protected */
+	/* Check capacity and duplicates */
 	spin_lock(&protected_files_lock);
+	if (protected_file_count >= AEGIS_MAX_PROTECTED_FILES) {
+		spin_unlock(&protected_files_lock);
+		return -ENOSPC;
+	}
 	list_for_each_entry(file, &protected_files, list) {
 		if (strncmp(file->path, path, AEGIS_PATH_LEN) == 0) {
 			spin_unlock(&protected_files_lock);

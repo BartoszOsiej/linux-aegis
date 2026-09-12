@@ -154,6 +154,10 @@ void aegis_module_exit(void);
 int aegis_securityfs_init(void);
 void aegis_securityfs_exit(void);
 
+/* aegis_control.c - Write-side control interface (CAP_MAC_ADMIN) */
+int aegis_control_init(struct dentry *parent);
+void aegis_control_exit(void);
+
 /* aegis_sysctl.c - Sysctl interface */
 int aegis_sysctl_init(void);
 void aegis_sysctl_exit(void);

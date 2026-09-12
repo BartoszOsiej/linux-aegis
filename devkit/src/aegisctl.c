@@ -24,6 +24,65 @@
 #define AEGIS_SYSCTL     "/proc/sys/kernel/aegis"
 #define MAX_BUF          4096
 
+static int write_secfs(const char *file, const char *value)
+{
+	char path[512];
+	int fd, ret;
+
+	snprintf(path, sizeof(path), "%s/%s", AEGIS_SECURITYFS, file);
+	fd = open(path, O_WRONLY);
+	if (fd < 0) {
+		printf("❌ %s: %s\n", path, strerror(errno));
+		printf("   (need root + AEGIS loaded)\n");
+		return -1;
+	}
+
+	ret = (int)write(fd, value, strlen(value));
+	close(fd);
+	if (ret < 0) {
+		printf("❌ write %s: %s\n", path, strerror(errno));
+		return -1;
+	}
+	printf("✅ %s <- %s\n", file, value);
+	return 0;
+}
+
+struct cmd {
+	const char *name;
+	const char *endpoint;   /* securityfs write file */
+	const char *usage;
+};
+
+static const struct cmd write_cmds[] = {
+	{ "file-add",      "protected_files_add",  "file-add <path>       protect a file (deny writes)" },
+	{ "file-del",      "protected_files_del",  "file-del <path>       unprotect a file" },
+	{ "proc-add",      "protected_procs_add",  "proc-add <comm> [pid] protect a process name (optionally one pid)" },
+	{ "proc-del",      "protected_procs_del",  "proc-del <comm> [pid] unprotect a process" },
+	{ "syscall-add",   "blocked_syscalls_add", "syscall-add <nr>      block a syscall number" },
+	{ "syscall-del",   "blocked_syscalls_del", "syscall-del <nr>      unblock a syscall number" },
+};
+
+static void cmd_write(int argc, char **argv)
+{
+	size_t i;
+
+	if (argc < 3) {
+		printf("usage: aegisctl <command> <arg>\n\nWrite commands:\n");
+		for (i = 0; i < sizeof(write_cmds) / sizeof(write_cmds[0]); i++)
+			printf("  %s\n", write_cmds[i].usage);
+		return;
+	}
+
+	for (i = 0; i < sizeof(write_cmds) / sizeof(write_cmds[0]); i++) {
+		if (strcmp(argv[1], write_cmds[i].name) == 0) {
+			write_secfs(write_cmds[i].endpoint, argv[2]);
+			return;
+		}
+	}
+
+	printf("unknown command: %s\n", argv[1]);
+}
+
 static void print_file(const char *path)
 {
 	int fd;
@@ -141,14 +200,20 @@ static void cmd_help(void)
 	printf("╚══════════════════════════════════════════════════╝\n\n");
 	printf("Usage: aegisctl <command>\n\n");
 	printf("Commands:\n");
-	printf("  status      Show AEGIS status and configuration\n");
-	printf("  stats       Show event statistics\n");
-	printf("  procs       Show protected processes list\n");
-	printf("  files       Show protected files list\n");
-	printf("  symlist     Show blocked syscalls list\n");
-	printf("  enable      Enable AEGIS (via sysctl)\n");
-	printf("  disable     Disable AEGIS (via sysctl)\n");
-	printf("  help        Show this help message\n\n");
+	printf("  status        Show AEGIS status and configuration\n");
+	printf("  stats         Show event statistics\n");
+	printf("  procs         Show protected processes list\n");
+	printf("  files         Show protected files list\n");
+	printf("  symlist       Show blocked syscalls list\n");
+	printf("  enable        Enable AEGIS (via sysctl)\n");
+	printf("  disable       Disable AEGIS (via sysctl)\n");
+	printf("  file-add      Protect a file:           aegisctl file-add /etc/passwd\n");
+	printf("  file-del      Unprotect a file:         aegisctl file-del /etc/passwd\n");
+	printf("  proc-add      Protect a process:        aegisctl proc-add sshd\n");
+	printf("  proc-del      Unprotect a process:      aegisctl proc-del sshd\n");
+	printf("  syscall-add   Block a syscall:          aegisctl syscall-add 101\n");
+	printf("  syscall-del   Unblock a syscall:        aegisctl syscall-del 101\n");
+	printf("  help          Show this help message\n\n");
 	printf("Files:\n");
 	printf("  /sys/kernel/security/aegis/status\n");
 	printf("  /sys/kernel/security/aegis/stats\n");
@@ -180,6 +245,13 @@ int main(int argc, char *argv[])
 		cmd_enable();
 	else if (strcmp(argv[1], "disable") == 0)
 		cmd_disable();
+	else if (strcmp(argv[1], "file-add") == 0 ||
+		 strcmp(argv[1], "file-del") == 0 ||
+		 strcmp(argv[1], "proc-add") == 0 ||
+		 strcmp(argv[1], "proc-del") == 0 ||
+		 strcmp(argv[1], "syscall-add") == 0 ||
+		 strcmp(argv[1], "syscall-del") == 0)
+		cmd_write(argc, argv);
 	else if (strcmp(argv[1], "help") == 0 || strcmp(argv[1], "--help") == 0)
 		cmd_help();
 	else {

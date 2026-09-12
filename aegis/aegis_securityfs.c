@@ -250,6 +250,11 @@ int aegis_securityfs_init(void)
 		goto err;
 	}
 
+	/* Write-side control endpoints (CAP_MAC_ADMIN gated) */
+	ret = aegis_control_init(aegis_dir);
+	if (ret)
+		goto err;
+
 	AEGIS_INFO("Securityfs interface created at /sys/kernel/security/aegis/");
 	return 0;
 
@@ -264,6 +269,9 @@ err:
  */
 void aegis_securityfs_exit(void)
 {
+	/* Write-side endpoints first, then read files, then the directory */
+	aegis_control_exit();
+
 	/* Files must be removed individually, then the directory */
 	if (!IS_ERR_OR_NULL(aegis_status_d))
 		securityfs_remove(aegis_status_d);
