@@ -19,6 +19,12 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <sys/klog.h>
+
+/* Defined in <sys/syslog.h>; not exported by the glibc klog.h header. */
+#ifndef SYSLOG_ACTION_READ_ALL
+#define SYSLOG_ACTION_READ_ALL 3
+#endif
 
 #define AEGIS_SECURITYFS "/sys/kernel/security/aegis"
 #define AEGIS_SYSCTL     "/proc/sys/kernel/aegis"
@@ -178,6 +184,74 @@ static void cmd_symlist(void)
 	print_file(AEGIS_SECURITYFS "/blocked_syscalls");
 }
 
+#define AUDIT_BUF_SIZE (256 * 1024)
+
+/* aegisctl audit [N] — show the last N AEGIS events from the kernel ring
+ * buffer (default 20). Every blocked ptrace/write/syscall/module load is
+ * logged with the "aegis:" prefix by the LSM hooks; this command turns
+ * that stream into a readable incident log without piping dmesg by hand. */
+static void cmd_audit(int argc, char **argv)
+{
+	char *buf;
+	long n;
+	int want = 20;
+	int total = 0, shown = 0;
+	char *line, *saveptr = NULL;
+
+	if (argc >= 3) {
+		want = atoi(argv[2]);
+		if (want <= 0) {
+			printf("usage: aegisctl audit [N]  (N = number of events, default 20)\n");
+			return;
+		}
+	}
+
+	buf = malloc(AUDIT_BUF_SIZE);
+	if (!buf) {
+		printf("❌ out of memory\n");
+		return;
+	}
+
+	n = klogctl(SYSLOG_ACTION_READ_ALL, buf, AUDIT_BUF_SIZE - 1);
+	if (n < 0) {
+		printf("❌ cannot read kernel log: %s\n", strerror(errno));
+		printf("   (need root, or dmesg_restrict=0)\n");
+		free(buf);
+		return;
+	}
+	buf[n] = '\0';
+
+	/* Count matching lines first so we know where to start printing. */
+	for (line = buf; (line = strstr(line, "aegis:")) != NULL; line++)
+		total++;
+
+	printf("\n");
+	printf("╔══════════════════════════════════════════╗\n");
+	printf("║     AEGIS Audit Log (last %d events)      \n", want);
+	printf("╚══════════════════════════════════════════╝\n\n");
+
+	if (total == 0) {
+		printf("  (no AEGIS events in the kernel ring buffer)\n\n");
+		free(buf);
+		return;
+	}
+
+	int skip = total > want ? total - want : 0;
+	int idx = 0;
+	for (line = strtok_r(buf, "\n", &saveptr); line; line = strtok_r(NULL, "\n", &saveptr)) {
+		char *tag = strstr(line, "aegis:");
+		if (!tag)
+			continue;
+		if (idx++ < skip)
+			continue;
+		printf("  %s\n", tag);
+		shown++;
+	}
+
+	printf("\n  %d of %d AEGIS events shown\n\n", shown, total);
+	free(buf);
+}
+
 static void cmd_enable(void)
 {
 	printf("Enabling AEGIS...\n");
@@ -205,6 +279,7 @@ static void cmd_help(void)
 	printf("  procs         Show protected processes list\n");
 	printf("  files         Show protected files list\n");
 	printf("  symlist       Show blocked syscalls list\n");
+	printf("  audit [N]     Show last N AEGIS events from kernel log (default 20)\n");
 	printf("  enable        Enable AEGIS (via sysctl)\n");
 	printf("  disable       Disable AEGIS (via sysctl)\n");
 	printf("  file-add      Protect a file:           aegisctl file-add /etc/passwd\n");
@@ -241,6 +316,8 @@ int main(int argc, char *argv[])
 		cmd_files();
 	else if (strcmp(argv[1], "symlist") == 0)
 		cmd_symlist();
+	else if (strcmp(argv[1], "audit") == 0)
+		cmd_audit(argc, argv);
 	else if (strcmp(argv[1], "enable") == 0)
 		cmd_enable();
 	else if (strcmp(argv[1], "disable") == 0)
