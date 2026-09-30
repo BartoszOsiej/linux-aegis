@@ -25,7 +25,7 @@ Instead, use **one** of these channels (in order of preference):
    Encrypt your report using the quantum-shield public key:
    ```bash
    # Fetch the public key
-   curl -s https://bartoszosiej.github.io/quantum-shield/KEYS | quantum-shield decrypt --verify-only
+   curl -s https://hartwell-labs.pl/quantum-shield/KEYS | quantum-shield decrypt --verify-only
    ```
    Or use PGP if you have the maintainer's key:
    ```
